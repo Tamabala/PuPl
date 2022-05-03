@@ -8,10 +8,10 @@ if isempty(which('Edf2Mat'))
 else
     output = Edf2Mat(fullpath);
     edf = output.RawEdf;
-    % Get times
-    EYE.times = double(edf.FSAMPLE.time)/1000;
     % Get srate
     EYE.srate = double(edf.RECORDINGS(1).sample_rate);
+    % Get times
+    EYE.times = double(edf.FSAMPLE.time)/EYE.srate;
     % Get data
     fields = {
         {'gaze' 'x'} {'gx'}
@@ -26,11 +26,16 @@ else
             sides = sides(side_indic); % 1 = left; 2 = right
         end
     end
+    % Get eye event
+    eventtype = {'FIX', 'SACC', 'BLINK'};
+    eyevent = extractevent(edf, sides, eventtype);
+    % Get samples
     for fi = 1:size(fields, 1)
         for si = 1:numel(sides)
             vec = edf.FSAMPLE.(fields{fi, 2}{:})(si, :);
-            % Replace missing data with nan
+            % Replace missing or zero data with nan
             vec(vec == single(-32768)) = nan;
+            vec(eyevent.BLINK.(sides{si})) = nan;
             EYE = setfield(EYE, fields{fi, 1}{:}, sides{si}, vec);
         end
     end
@@ -57,4 +62,33 @@ else
     );
 end
 
+    function eyevent = extractevent(rawEDF, sides, eventype)
+        
+        fevent = rawEDF.FEVENT;
+        startStamp = rawEDF.RECORDINGS(1).time;
+        eyevent = [];
+        
+        for j = 1:length(sides)
+            eyeName = sides{j};
+            if strcmp(eyeName, 'left')
+                marker = 0;
+            elseif strcmp(eyeName, 'right')
+                marker = 1;
+            end
+            
+            eye_idx = arrayfun(@(s) s.eye == marker, fevent);
+            
+            for i = 1:length(eventype)
+                evtName = eventype{i};
+                evt_idx = arrayfun(@(s) strcmp(s.codestring, ['END', evtName]), fevent);
+                eye_evt_idx = eye_idx & evt_idx;
+                events = fevent(eye_evt_idx);
+                index = num2cell([[events.sttime]',[events.entime]'], 2);
+                index  = cellfun(@(x) x(1):x(2), index, 'UniformOutput', false);
+                index = [index{:}] - startStamp + 1;
+                eyevent.(evtName).(eyeName) = index;
+            end
+        end
+    end
+    
 end
