@@ -1,7 +1,7 @@
 
 function pupl_plot_sizehist(f, EYE)
 
-% Plot a histogram of gap durations
+% Plot a histogram of pupil szie
 eye_names = fieldnames(EYE.pupil);
 n_eyes = numel(eye_names);
 data = cell(1, n_eyes);
@@ -35,7 +35,7 @@ try
 end
 % Get rid of little starts along the x axis
 set(findobj(gca, 'Type', 'line'), 'Marker', 'none');
-xlabel('Blink duration')
+xlabel('Pupil size')
 ylabel('Data count')
 legend(h, eye_names{:});
 
